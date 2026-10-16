@@ -2,19 +2,26 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BrandMark } from "@/components/brand-mark";
+import { SettingsMenu } from "@/components/settings-menu";
+import { rememberRoom, useBrowserState } from "@/lib/browser-storage";
 
 function Entry() {
   const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
+  const { preferences } = useBrowserState();
+  const [draftName, setDraftName] = useState<string | null>(null);
+  const [draftRoom, setDraftRoom] = useState<string | null>(null);
   return (
     <main className="landing">
       <nav className="brand">
         <span className="brand-icon">
-          h<span>•</span>
+          <BrandMark />
         </span>{" "}
         HiChat <span className="brand-tag">A little closer.</span>
+        <SettingsMenu />
       </nav>
       <div className="landing-grid">
         <section className="intro enter">
@@ -71,6 +78,7 @@ function Entry() {
                 );
                 return;
               }
+              rememberRoom(name, room);
               setJoining(true);
               router.push(
                 `/room/${encodeURIComponent(room)}?username=${encodeURIComponent(name)}`,
@@ -84,6 +92,8 @@ function Entry() {
               id="username"
               name="username"
               placeholder="e.g. Alex"
+              value={draftName ?? preferences.username}
+              onChange={(event) => setDraftName(event.target.value)}
               autoComplete="nickname"
               required
               maxLength={15}
@@ -96,7 +106,8 @@ function Entry() {
               <input
                 id="room"
                 name="room"
-                defaultValue="general"
+                value={draftRoom ?? preferences.room}
+                onChange={(event) => setDraftRoom(event.target.value)}
                 required
                 maxLength={20}
                 pattern="[a-zA-Z0-9_\-]+"
@@ -108,6 +119,37 @@ function Entry() {
               <span>↗</span>
             </button>
           </form>
+          {preferences.rooms.length > 0 && (
+            <div className="recent-rooms">
+              <span className="eyebrow">PICK UP WHERE YOU LEFT OFF</span>
+              <div>
+                {preferences.rooms.map((room) => (
+                  <button
+                    className="room-chip"
+                    key={room}
+                    type="button"
+                    disabled={joining}
+                    onClick={() => {
+                      const name = (draftName ?? preferences.username).trim();
+                      setDraftRoom(room);
+                      if (!name) {
+                        document.getElementById("username")?.focus();
+                        return;
+                      }
+                      rememberRoom(name, room);
+                      setJoining(true);
+                      router.push(
+                        `/room/${encodeURIComponent(room)}?username=${encodeURIComponent(name)}`,
+                      );
+                    }}
+                  >
+                    # {room}
+                    <span>↗</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="card-foot">
             <span className="status-dot" /> Real-time conversations. Simple as
             that.

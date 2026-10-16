@@ -1,0 +1,43 @@
+:root {
+  /* NORD PALETTE REFERENCE
+     nord0 #2E3440  nord1 #3B4252  nord2 #434C5E  nord3 #4C566A
+     nord4 #D8DEE9  nord5 #E5E9F0  nord6 #ECEFF4
+     nord7  #8FBCBB  nord8 #88C0D0  nord9 #81A1C1  nord10 #5E81AC
+     nord11 #BF616A  nord12 #D08770  nord13 #EBCB8B  nord14 #A3BE8C  nord15 #B48EAD */
+
+  /* BRAND / ACCENT */
+  --brand-primary: #88C0D0;       /* nord8 - frost accent */
+  --brand-secondary: #81A1C1;     /* nord9 */
+  --brand-primary-light: #8FBCBB; /* nord7 */
+
+  /* BACKGROUNDS */
+  --background-primary: #2E3440;          /* nord0 */
+  --background-secondary: #2E3440;
+  --background-secondary-alt: #3B4252;    /* nord1 */
+  --background-tertiary: #3B4252;
+  --background-textarea: #434C5E;         /* nord2 */
+  --background-header-primary: #3B4252;
+  --background-header-secondary: #3B4252;
+  --background-header-primary-hover: #434C5E;
+
+  /* TEXT & STATUS */
+  --text-primary: #ECEFF4;    /* nord6 */
+  --text-secondary: #D8DEE9;  /* nord4 */
+  --text-tertiary: #8B95A7;   /* muted blend */
+  --text-chat: #ECEFF4;
+  --text-link: #88C0D0;       /* nord8 */
+
+  --status-online: #A3BE8C;   /* nord14 */
+  --status-idle: #EBCB8B;     /* nord13 */
+  --status-dnd: #BF616A;      /* nord11 */
+  --status-offline: #4C566A;  /* nord3 */
+
+  /* BORDERS & BUTTONS */
+  --border-color: #434C5E;         /* nord2 */
+  --button-primary-fill: #5E81AC;  /* nord10 */
+  --button-danger-fill: #BF616A;   /* nord11 */
+
+  /* TYPOGRAPHY */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", Menlo, monospace;
+}

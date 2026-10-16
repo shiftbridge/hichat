@@ -1,4 +1,5 @@
 import "./globals.css";
+import { ThemeController } from "@/components/theme-controller";
 
 export const metadata = {
   title: "HiChat",
@@ -12,7 +13,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <ThemeController />
+        {children}
+      </body>
     </html>
   );
 }

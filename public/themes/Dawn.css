@@ -1,0 +1,28 @@
+:root {
+  --brand-primary: #7952b3;
+  --brand-secondary: #936bc9;
+  --brand-primary-light: #936bc9;
+  --background-primary: #faf8f5;
+  --background-secondary: #f0ede9;
+  --background-secondary-alt: #ffffff;
+  --background-tertiary: #e9e3ed;
+  --background-textarea: #ffffff;
+  --background-header-primary: #f0ede9;
+  --background-header-secondary: #ffffff;
+  --background-header-primary-hover: #e5dfea;
+  --text-primary: #292333;
+  --text-secondary: #51495b;
+  --text-tertiary: #716777;
+  --text-chat: #292333;
+  --text-link: #7952b3;
+  --status-online: #4b805b;
+  --status-idle: #9a7024;
+  --status-dnd: #b14555;
+  --status-offline: #948b9a;
+  --border-color: #ddd6df;
+  --button-primary-fill: #7952b3;
+  --button-danger-fill: #b14555;
+  --font-sans:
+    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", Menlo, monospace;
+}

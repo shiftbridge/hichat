@@ -7,17 +7,29 @@ import Pusher, { type PresenceChannel } from "pusher-js";
 import { encodeImage } from "@/lib/encode-image";
 import { createImageReceiver, type ImageChunk } from "@/lib/image-transfer";
 import type { Message } from "@/types/chat";
+import { BrandMark } from "@/components/brand-mark";
+import { SettingsMenu } from "@/components/settings-menu";
+import {
+  appendHistory,
+  rememberRoom,
+  useBrowserState,
+} from "@/lib/browser-storage";
 
 type Members = { each: (callback: (member: { id: string }) => void) => void };
 const configured = Boolean(
   process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
 );
 
+const emptyMessages: Message[] = [];
+
 function Room() {
   const { roomId } = useParams<{ roomId: string }>();
   const username = useSearchParams().get("username")?.trim() || "";
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { histories, preferences, warning } = useBrowserState();
+  const messages = Object.hasOwn(histories, roomId)
+    ? histories[roomId]
+    : emptyMessages;
   const [input, setInput] = useState("");
   const [attachment, setAttachment] = useState<{
     file: File;
@@ -53,6 +65,7 @@ function Room() {
       router.replace("/");
       return;
     }
+    rememberRoom(username, roomId);
     if (!configured) return;
     const receiver = createImageReceiver();
     const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -98,15 +111,11 @@ function Room() {
     room.bind("image-message-chunk", (chunk: ImageChunk) => {
       const message = receiver.receive(chunk);
       if (!message) return;
-      setMessages((prev) =>
-        prev.some((m) => m.id === message.id) ? prev : [...prev, message],
-      );
+      appendHistory(message);
       setTyping((prev) => prev.filter((name) => name !== message.user));
     });
     room.bind("new-message", (message: Message) => {
-      setMessages((prev) =>
-        prev.some((m) => m.id === message.id) ? prev : [...prev, message],
-      );
+      appendHistory(message);
       setTyping((prev) => prev.filter((name) => name !== message.user));
     });
     room.bind("client-typing", (data: { user?: string }) => {
@@ -234,9 +243,24 @@ function Room() {
     <main className="chat-shell">
       <aside className="rail">
         <Link className="brand-icon" href="/" aria-label="HiChat home">
-          h<span>•</span>
+          <BrandMark />
         </Link>
         <span className="rail-room">#</span>
+        <div className="rail-recents">
+          {preferences.rooms
+            .filter((name) => name !== roomId)
+            .slice(0, 5)
+            .map((room) => (
+              <Link
+                key={room}
+                href={`/room/${encodeURIComponent(room)}?username=${encodeURIComponent(username)}`}
+                title={`Join ${room}`}
+                aria-label={`Join ${room}`}
+              >
+                {room.slice(0, 2).toUpperCase()}
+              </Link>
+            ))}
+        </div>
         <span className="rail-bottom">✦</span>
       </aside>
       <section className="chat-main">
@@ -247,16 +271,19 @@ function Room() {
               <span className="accent">#</span> {roomId}
             </h1>
           </div>
-          <button
-            className="subtle member-toggle"
-            onClick={() => setSidebar(!sidebar)}
-            aria-expanded={sidebar}
-            aria-controls="members"
-          >
-            <i className={`status-dot ${connected ? "" : "offline"}`} />
-            {connected ? `${members.length} online` : "Offline"}
-            <span> ☷</span>
-          </button>
+          <div className="header-actions">
+            <SettingsMenu />
+            <button
+              className="subtle member-toggle"
+              onClick={() => setSidebar(!sidebar)}
+              aria-expanded={sidebar}
+              aria-controls="members"
+            >
+              <i className={`status-dot ${connected ? "" : "offline"}`} />
+              {connected ? `${members.length} online` : "Offline"}
+              <span> ☷</span>
+            </button>
+          </div>
         </header>
         <div
           className="message-scroll"
@@ -349,9 +376,9 @@ function Room() {
           <div ref={bottom} />
         </div>
         <div className="composer-wrap">
-          {error && (
+          {(error || warning) && (
             <div className="alert" role="alert">
-              {error}
+              {error || warning}
             </div>
           )}
           {attachment && (
@@ -507,6 +534,23 @@ function Room() {
             </p>
           )}
         </div>
+        {preferences.rooms.length > 1 && (
+          <div className="sidebar-recents">
+            <span className="eyebrow">RECENT ROOMS</span>
+            {preferences.rooms
+              .filter((name) => name !== roomId)
+              .slice(0, 5)
+              .map((room) => (
+                <Link
+                  key={room}
+                  href={`/room/${encodeURIComponent(room)}?username=${encodeURIComponent(username)}`}
+                >
+                  # {room}
+                  <span>↗</span>
+                </Link>
+              ))}
+          </div>
+        )}
         <div className="room-note">
           <span>✦</span>
           <h3>A little room. A lot of possibility.</h3>
