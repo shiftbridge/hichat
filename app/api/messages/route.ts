@@ -1,3 +1,4 @@
+import { validGif } from "@/lib/gifs";
 import { NextResponse } from "next/server";
 import { getPusher, validRoom, validUser } from "@/lib/chat";
 import { loadImage, validImageId, imageExtension } from "@/lib/images";
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     !validRoom(body.room) ||
     !validUser(body.user) ||
     typeof body.text !== "string" ||
-    (!body.text.trim() && !body.image) ||
+    (!body.text.trim() && !body.image && !body.gif) ||
     body.text.length > 2000
   ) {
     return NextResponse.json(
@@ -27,6 +28,11 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (body.gif !== undefined && (!validGif(body.gif) || body.image))
+    return NextResponse.json(
+      { error: "Invalid GIF attachment." },
+      { status: 400 },
+    );
   if (
     body.image !== undefined &&
     (!body.image ||
@@ -66,6 +72,17 @@ export async function POST(request: Request) {
     user: body.user.trim(),
     text: body.text.trim(),
     timestamp: new Date().toISOString(),
+    ...(body.gif
+      ? {
+          gif: {
+            provider: body.gif.provider,
+            url: body.gif.url,
+            preview: body.gif.preview,
+            title: body.gif.title,
+            pageUrl: body.gif.pageUrl,
+          },
+        }
+      : {}),
     ...(body.image
       ? {
           image: {
@@ -76,6 +93,16 @@ export async function POST(request: Request) {
         }
       : {}),
   };
+  if (
+    !payload.image?.data &&
+    Buffer.byteLength(JSON.stringify(payload), "utf8") > 9500
+  )
+    return NextResponse.json(
+      {
+        error: "This message is too large. Shorten the caption and try again.",
+      },
+      { status: 400 },
+    );
   try {
     if (payload.image?.data) {
       const chunks = chunkImage(payload);

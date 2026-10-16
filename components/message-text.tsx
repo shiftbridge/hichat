@@ -1,4 +1,5 @@
 "use client";
+import { parseLinks } from "@/lib/links";
 import { useState } from "react";
 import {
   discordEmojiUrl,
@@ -36,7 +37,7 @@ function CustomEmoji({
     </picture>
   );
 }
-export function MessageText({ text }: { text: string }) {
+function InlineText({ text }: { text: string }) {
   const parts = parseEmoji(text);
   const count = emojiOnlyCount(parts);
   const large = count > 0 && count <= 6;
@@ -50,5 +51,27 @@ export function MessageText({ text }: { text: string }) {
         ),
       )}
     </span>
+  );
+}
+
+export function MessageText({ text }: { text: string }) {
+  return (
+    <>
+      {parseLinks(text).map((part, index) =>
+        part.href ? (
+          <a
+            className="chat-link"
+            key={index}
+            href={part.href}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >
+            {part.text}
+          </a>
+        ) : (
+          <InlineText key={index} text={part.text} />
+        ),
+      )}
+    </>
   );
 }

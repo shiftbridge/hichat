@@ -1,3 +1,4 @@
+import type { ChatGif } from "@/lib/gifs";
 export interface ChatImage {
   id: string;
   name: string;
@@ -11,4 +12,5 @@ export interface Message {
   text: string;
   timestamp: string;
   image?: ChatImage;
+  gif?: ChatGif;
 }

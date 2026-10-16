@@ -54,7 +54,7 @@ Run `bun run lint`, `bunx tsc --noEmit`, and `bun run build` to check the app.
 
 ## Image sharing (works on Vercel)
 
-Select a PNG, JPEG, GIF or WebP up to 5 MB using the image button. Images are resized to at most 1,280 pixels on their longest side, compressed, and base64-encoded entirely in the sender's browser. Large/detailed images are reduced further to keep the encoded data under 350,000 characters. Animated images become a still frame. Add an optional caption and send; recipients reconstruct and display the image and can save the compressed copy. Failed sends retain the attachment for retry.
+Select a PNG, JPEG, GIF or WebP up to 5 MB using the image button. Images are resized to at most 1,280 pixels on their longest side, compressed, and base64-encoded entirely in the sender's browser. Large/detailed images are reduced further to keep the encoded data under 350,000 characters. GIF files retain animation, subject to the 256 KB direct GIF limit described below; other uploaded formats use a still image. Add an optional caption and send; recipients reconstruct and display the image and can save the compressed copy. Failed sends retain the attachment for retry.
 
 Images travel as small text chunks through the existing Pusher relay, then are reassembled in recipients' browsers. No server disk, image host, or additional storage service is required. Pusher still transports the image data, and each chunk counts toward its message usage. Received images and messages are remembered in this browser. Users joining later do not receive earlier messages unless they were already saved on that device.
 
@@ -75,3 +75,18 @@ Settings → **Reset HiChat** → **Clear saved data** clears HiChat cookies, me
 Paste Discord custom emoji codes directly into messages: `<:name:123456789012345678>` for static emoji or `<a:name:123456789012345678>` for animated emoji. Custom images load from Discord's CDN; no Discord login or bot token is needed. Deleted or unavailable images fall back to the original code. Animated emoji use a static image when reduced motion is enabled.
 
 The smile button opens a searchable, categorized picker backed by the bundled [Emojibase dataset](https://github.com/milesj/emojibase), with over 1,900 base emoji, skin-tone variants, and over 9,500 aliases. Discord-style codes such as `:sob:`, `:smile:`, `:heart:`, `:thumbsup:`, `:flag_us:` and `:woman_technologist:` render automatically. Skin tones work with chained codes such as `:thumbsup::skin-tone-4:` and correctly preserve profession/gender sequences. Search by name, shortcode or emoji, filter by category, and choose a skin tone or browse all variants. Standard emoji render locally using your device’s fonts; newer glyphs depend on OS/font support. Arbitrary server-specific custom names still require their complete numeric ID code. Message history preserves the original codes.
+
+## GIFs and links
+
+The **GIF** button searches GIPHY or KLIPY and attaches an animation with an optional caption. Add one or both provider keys to `.env.local`, or to your Vercel project's environment variables, and redeploy:
+
+```dotenv
+NEXT_PUBLIC_GIPHY_API_KEY=your-giphy-api-key
+NEXT_PUBLIC_KLIPY_API_KEY=your-klipy-app-key
+```
+
+These are public browser API keys: search requests go directly to the selected provider, and GIF media loads from its CDN. Follow the provider's app/key restrictions. Get keys from [GIPHY Developers](https://developers.giphy.com/dashboard/) or [KLIPY](https://klipy.com/developers). Search queries go to that provider; the app stores only a small GIF reference in messages/history. KLIPY uses a local anonymous customer ID, which Reset HiChat also clears. Missing keys show a configuration message; there are no built-in demo keys.
+
+Uploaded `.gif` files now preserve their animation instead of being flattened by canvas. Direct GIF uploads are limited to 256 KB to fit the encoded chat relay; use provider GIFs for larger animations. Static images keep the existing 5 MB selection limit and local compression.
+
+HTTP/HTTPS and `www.` links in chat are clickable, open in a new tab, and retain surrounding punctuation. Emoji codes inside URLs are preserved as part of the URL.

@@ -2,6 +2,16 @@ import { MAX_ENCODED_IMAGE_LENGTH } from "@/lib/image-transfer";
 
 // All resizing and encoding happens in the sender's browser.
 export async function encodeImage(file: File): Promise<string> {
+  if (file.type === "image/gif") {
+    if (file.size > 256 * 1024)
+      throw new Error(
+        "Animated GIF uploads must be 256 KB or smaller. Use the GIF picker for larger animations.",
+      );
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return `data:image/gif;base64,${btoa(binary)}`;
+  }
   const url = URL.createObjectURL(file);
   try {
     const image = new Image();

@@ -8,6 +8,8 @@ import { encodeImage } from "@/lib/encode-image";
 import { createImageReceiver, type ImageChunk } from "@/lib/image-transfer";
 import type { Message } from "@/types/chat";
 import { MessageText } from "@/components/message-text";
+import { GifPicker } from "@/components/gif-picker";
+import type { ChatGif } from "@/lib/gifs";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { BrandMark } from "@/components/brand-mark";
 import { SettingsMenu } from "@/components/settings-menu";
@@ -33,6 +35,7 @@ function Room() {
     ? histories[roomId]
     : emptyMessages;
   const [input, setInput] = useState("");
+  const [gif, setGif] = useState<ChatGif | null>(null);
   const [attachment, setAttachment] = useState<{
     file: File;
     id: string;
@@ -210,8 +213,14 @@ function Room() {
     setError("");
     try {
       const data = await encodeImage(file);
-      if (attempt === preparation.current)
-        setAttachment({ file, id: `${crypto.randomUUID()}.webp`, data });
+      if (attempt === preparation.current) {
+        setAttachment({
+          file,
+          id: `${crypto.randomUUID()}.${data.startsWith("data:image/gif") ? "gif" : "webp"}`,
+          data,
+        });
+        setGif(null);
+      }
     } catch (error) {
       if (attempt === preparation.current)
         setError(
@@ -228,8 +237,9 @@ function Room() {
     event.preventDefault();
     const text = input.trim();
     const draftAttachment = attachment;
+    const draftGif = gif;
     if (
-      (!text && !draftAttachment) ||
+      (!text && !draftAttachment && !draftGif) ||
       !connected ||
       preparing ||
       sendingRef.current
@@ -249,7 +259,13 @@ function Room() {
       const response = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ room: roomId, user: username, text, image }),
+        body: JSON.stringify({
+          room: roomId,
+          user: username,
+          text,
+          image,
+          ...(draftGif ? { gif: draftGif } : {}),
+        }),
         signal: AbortSignal.timeout(60000),
       });
       if (!response.ok) {
@@ -260,6 +276,7 @@ function Room() {
       setAttachment((current) =>
         current === draftAttachment ? null : current,
       );
+      setGif((current) => (current === draftGif ? null : current));
       follow.current = true;
     } catch (cause) {
       setError(
@@ -437,7 +454,9 @@ function Room() {
                       })}
                 </time>
               </div>
-              <div className={`bubble ${message.image ? "image-bubble" : ""}`}>
+              <div
+                className={`bubble ${message.image || message.gif ? "image-bubble" : ""}`}
+              >
                 {message.image && (
                   <a
                     className="chat-image-link"
@@ -446,7 +465,11 @@ function Room() {
                       `/api/images/${encodeURIComponent(message.image.id)}`
                     }
                     download={
-                      message.image.data ? "chat-image.webp" : undefined
+                      message.image.data
+                        ? message.image.data.startsWith("data:image/gif")
+                          ? "chat-image.gif"
+                          : "chat-image.webp"
+                        : undefined
                     }
                     target="_blank"
                     rel="noopener noreferrer"
@@ -475,6 +498,26 @@ function Room() {
                     <span className="image-open">Save image ↓</span>
                   </a>
                 )}
+                {message.gif && (
+                  <a
+                    className="chat-image-link"
+                    href={message.gif.pageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className="chat-image"
+                      src={message.gif.url}
+                      alt={message.gif.title}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="image-open">
+                      GIF · {message.gif.provider.toUpperCase()} ↗
+                    </span>
+                  </a>
+                )}
                 {message.text && (
                   <div>
                     <MessageText text={message.text} />
@@ -497,6 +540,27 @@ function Room() {
           {(error || warning) && (
             <div className="alert" role="alert">
               {error || warning}
+            </div>
+          )}
+          {gif && (
+            <div className="attachment-preview">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={gif.preview} alt={gif.title} />
+              <div>
+                <strong>{gif.title}</strong>
+                <small>
+                  GIF · {gif.provider.toUpperCase()} · Ready to send
+                </small>
+              </div>
+              <button
+                type="button"
+                className="subtle"
+                disabled={sending}
+                aria-label="Remove GIF"
+                onClick={() => setGif(null)}
+              >
+                ×
+              </button>
             </div>
           )}
           {attachment && (
@@ -560,6 +624,13 @@ function Room() {
                 <path d="m3 17 5-5 4 4 4-6 5 7" />
               </svg>
             </button>
+            <GifPicker
+              disabled={sending || preparing || !connected}
+              onSelect={(selected) => {
+                setAttachment(null);
+                setGif(selected);
+              }}
+            />
             <EmojiPicker
               onInsert={(emoji) => {
                 const field = messageInput.current;
@@ -605,7 +676,7 @@ function Room() {
             <button
               className="primary"
               disabled={
-                (!input.trim() && !attachment) ||
+                (!input.trim() && !attachment && !gif) ||
                 !connected ||
                 sending ||
                 preparing

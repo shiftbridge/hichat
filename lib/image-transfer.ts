@@ -8,7 +8,7 @@ export const MAX_IMAGE_CHUNKS = Math.ceil(
 export const validImageData = (data: unknown): data is string =>
   typeof data === "string" &&
   data.length <= MAX_ENCODED_IMAGE_LENGTH &&
-  /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(data);
+  /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(data);
 
 export interface ImageChunk {
   id: string;

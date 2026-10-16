@@ -1,5 +1,6 @@
 "use client";
 
+import { validGif } from "@/lib/gifs";
 import { useSyncExternalStore } from "react";
 import type { Message } from "@/types/chat";
 import { validImageData } from "@/lib/image-transfer";
@@ -66,6 +67,7 @@ function validMessage(value: Message, room: string) {
     typeof value.text === "string" &&
     value.text.length <= 2000 &&
     typeof value.timestamp === "string" &&
+    (!value.gif || validGif(value.gif)) &&
     (!value.image ||
       (typeof value.image.id === "string" &&
         /^[\w.-]{1,64}$/.test(value.image.id) &&
