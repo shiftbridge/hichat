@@ -29,8 +29,7 @@ function Entry() {
             <i /> GOOD CONVERSATIONS START HERE
           </span>
           <h1>
-            Your people.
-            <br />
+            Your people. <br />
             Your space.
             <br />
             <span>Just say hi.</span>
@@ -95,6 +94,8 @@ function Entry() {
               value={draftName ?? preferences.username}
               onChange={(event) => setDraftName(event.target.value)}
               autoComplete="nickname"
+              enterKeyHint="next"
+              autoCapitalize="words"
               required
               maxLength={15}
             />
@@ -112,6 +113,10 @@ function Entry() {
                 maxLength={20}
                 pattern="[a-zA-Z0-9_\-]+"
                 autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="go"
               />
             </div>
             <button className="primary" disabled={joining}>

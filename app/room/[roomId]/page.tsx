@@ -42,7 +42,8 @@ function Room() {
   const [connected, setConnected] = useState(false);
   const [members, setMembers] = useState<string[]>([]);
   const [typing, setTyping] = useState<string[]>([]);
-  const [sidebar, setSidebar] = useState(false);
+  const membersDialog = useRef<HTMLDialogElement>(null);
+  const shell = useRef<HTMLElement>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(
     configured
@@ -150,11 +151,41 @@ function Room() {
       });
   }, [messages, typing]);
   useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSidebar(false);
+    const viewport = window.visualViewport;
+    const mobile = window.matchMedia(
+      "(max-width: 760px), (max-width: 1024px) and (max-height: 500px) and (pointer: coarse)",
+    );
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (mobile.matches && viewport && viewport.scale === 1) {
+          shell.current?.style.setProperty(
+            "--chat-height",
+            `${viewport.height}px`,
+          );
+          shell.current?.style.setProperty(
+            "--chat-top",
+            `${viewport.offsetTop}px`,
+          );
+          if (follow.current && scroll.current)
+            scroll.current.scrollTop = scroll.current.scrollHeight;
+        } else {
+          shell.current?.style.removeProperty("--chat-height");
+          shell.current?.style.removeProperty("--chat-top");
+        }
+      });
     };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
+    update();
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
   }, []);
 
   async function selectImage(file?: File) {
@@ -239,8 +270,80 @@ function Room() {
     }
   }
 
+  const memberContent = (
+    <>
+      <div className="members-heading">
+        <span className="eyebrow">
+          IN THIS ROOM <span>{connected ? members.length : 0}</span>
+        </span>
+        <button
+          className="drawer-close subtle"
+          onClick={() => membersDialog.current?.close()}
+          aria-label="Close members"
+        >
+          ×
+        </button>
+      </div>
+      <div className="roster">
+        {connected ? (
+          members.map((name) => (
+            <div className="member" key={name}>
+              <div className="avatar">
+                {name.charAt(0).toUpperCase()}
+                <i className="status-dot" />
+              </div>
+              <div>
+                <strong>{name}</strong>
+                <small>
+                  {name === username
+                    ? "You, making connections"
+                    : "Here for the conversation"}
+                </small>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="muted">
+            {configured
+              ? "Connecting to your room…"
+              : "Members will appear once chat is configured."}
+          </p>
+        )}
+      </div>
+      {preferences.rooms.length > 1 && (
+        <div className="sidebar-recents">
+          <span className="eyebrow">RECENT ROOMS</span>
+          {preferences.rooms
+            .filter((name) => name !== roomId)
+            .slice(0, 5)
+            .map((room) => (
+              <Link
+                key={room}
+                href={`/room/${encodeURIComponent(room)}?username=${encodeURIComponent(username)}`}
+                onClick={() => membersDialog.current?.close()}
+              >
+                # {room}
+                <span>↗</span>
+              </Link>
+            ))}
+        </div>
+      )}
+      <div className="room-note">
+        <span>✦</span>
+        <h3>A little room. A lot of possibility.</h3>
+        <p>
+          Share this room name with a friend to bring them into the
+          conversation.
+        </p>
+      </div>
+      <Link className="leave-link" href="/">
+        ↖ Leave room
+      </Link>
+    </>
+  );
+
   return (
-    <main className="chat-shell">
+    <main className="chat-shell" ref={shell}>
       <aside className="rail">
         <Link className="brand-icon" href="/" aria-label="HiChat home">
           <BrandMark />
@@ -265,7 +368,14 @@ function Room() {
       </aside>
       <section className="chat-main">
         <header className="chat-header">
-          <div>
+          <Link
+            className="mobile-home brand-icon"
+            href="/"
+            aria-label="Go to home"
+          >
+            <BrandMark />
+          </Link>
+          <div className="room-title">
             <div className="eyebrow">YOUR CONVERSATION SPACE</div>
             <h1>
               <span className="accent">#</span> {roomId}
@@ -275,9 +385,10 @@ function Room() {
             <SettingsMenu />
             <button
               className="subtle member-toggle"
-              onClick={() => setSidebar(!sidebar)}
-              aria-expanded={sidebar}
-              aria-controls="members"
+              onClick={() => membersDialog.current?.showModal()}
+              aria-haspopup="dialog"
+              aria-label="View room members and recent rooms"
+              aria-controls="room-members"
             >
               <i className={`status-dot ${connected ? "" : "offline"}`} />
               {connected ? `${members.length} online` : "Offline"}
@@ -448,6 +559,8 @@ function Room() {
                 connected ? `Message #${roomId}…` : "Waiting for connection…"
               }
               value={input}
+              enterKeyHint="send"
+              autoComplete="off"
               maxLength={2000}
               onChange={(event) => {
                 setInput(event.target.value);
@@ -488,81 +601,24 @@ function Room() {
           </div>
         </div>
       </section>
-      {sidebar && (
-        <button
-          className="drawer-overlay"
-          aria-label="Close members"
-          onClick={() => setSidebar(false)}
-        />
-      )}
-      <aside id="members" className={`members-panel ${sidebar ? "open" : ""}`}>
-        <div className="members-heading">
-          <span className="eyebrow">
-            IN THIS ROOM <span>{connected ? members.length : 0}</span>
-          </span>
-          <button
-            className="drawer-close subtle"
-            onClick={() => setSidebar(false)}
-            aria-label="Close members"
-          >
-            ×
-          </button>
-        </div>
-        <div className="roster">
-          {connected ? (
-            members.map((name) => (
-              <div className="member" key={name}>
-                <div className="avatar">
-                  {name.charAt(0).toUpperCase()}
-                  <i className="status-dot" />
-                </div>
-                <div>
-                  <strong>{name}</strong>
-                  <small>
-                    {name === username
-                      ? "You, making connections"
-                      : "Here for the conversation"}
-                  </small>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="muted">
-              {configured
-                ? "Connecting to your room…"
-                : "Members will appear once chat is configured."}
-            </p>
-          )}
-        </div>
-        {preferences.rooms.length > 1 && (
-          <div className="sidebar-recents">
-            <span className="eyebrow">RECENT ROOMS</span>
-            {preferences.rooms
-              .filter((name) => name !== roomId)
-              .slice(0, 5)
-              .map((room) => (
-                <Link
-                  key={room}
-                  href={`/room/${encodeURIComponent(room)}?username=${encodeURIComponent(username)}`}
-                >
-                  # {room}
-                  <span>↗</span>
-                </Link>
-              ))}
-          </div>
-        )}
-        <div className="room-note">
-          <span>✦</span>
-          <h3>A little room. A lot of possibility.</h3>
-          <p>
-            Share this room name with a friend to bring them into the
-            conversation.
-          </p>
-        </div>
-        <Link className="leave-link" href="/">
-          ↖ Leave room
-        </Link>
+      <aside
+        className="members-panel"
+        aria-label="Room members and recent rooms"
+      >
+        {memberContent}
       </aside>
+      <dialog
+        id="room-members"
+        className="room-drawer"
+        ref={membersDialog}
+        aria-label="Room members and recent rooms"
+        onClick={(event) => {
+          if (event.target === event.currentTarget)
+            membersDialog.current?.close();
+        }}
+      >
+        <div className="drawer-content">{memberContent}</div>
+      </dialog>
     </main>
   );
 }
