@@ -1,13 +1,5 @@
 import { NextResponse } from "next/server";
-import Pusher from "pusher";
-
-const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID!,
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
-  secret: process.env.PUSHER_SECRET!,
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-  useTLS: true,
-});
+import { getPusher, validRoom, validUser } from "@/lib/chat";
 
 export async function POST(request: Request) {
   try {
@@ -16,18 +8,37 @@ export async function POST(request: Request) {
     const channelName = formData.get("channel_name") as string;
     const username = formData.get("username") as string; // Passed from frontend
 
-    if (!socketId || !channelName || !username) {
+    if (
+      typeof socketId !== "string" ||
+      !/^\d+\.\d+$/.test(socketId) ||
+      typeof channelName !== "string" ||
+      !channelName.startsWith("presence-room-") ||
+      !validRoom(channelName.slice(14)) ||
+      !validUser(username)
+    ) {
       return NextResponse.json(
         { error: "Missing parameters" },
         { status: 400 },
       );
     }
 
+    const pusher = getPusher();
+    if (!pusher)
+      return NextResponse.json(
+        { error: "Chat is not configured yet." },
+        { status: 503 },
+      );
+
     // 1. Check if the username is already taken in this specific channel
     const channelInfo = await pusher.get({
       path: `/channels/${channelName}/users`,
     });
 
+    if (channelInfo.status !== 200)
+      return NextResponse.json(
+        { error: "Unable to verify room members." },
+        { status: 502 },
+      );
     if (channelInfo.status === 200) {
       const result = await channelInfo.json();
       const existingUsers = result.users.map((u: { id: string }) =>
@@ -54,7 +65,10 @@ export async function POST(request: Request) {
       presenceData,
     );
     return NextResponse.json(authResponse);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: "Unable to join the room. Please try again." },
+      { status: 500 },
+    );
   }
 }

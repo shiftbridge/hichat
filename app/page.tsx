@@ -1,121 +1,132 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-function HomeEntryForm() {
+function Entry() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (searchParams.get("error") === "taken") {
-      setErrorMsg("That username is already active in that room.");
-    }
-  }, [searchParams]);
-
-  const handleJoin = (formData: FormData) => {
-    setErrorMsg(null);
-
-    const username = formData.get("username")?.toString().trim();
-    const room = formData.get("room")?.toString().trim().toLowerCase();
-
-    if (!username || !room) return;
-
-    router.push(`/room/${room}?username=${encodeURIComponent(username)}`);
-  };
-
+  const params = useSearchParams();
+  const [error, setError] = useState("");
+  const [joining, setJoining] = useState(false);
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-slate-950 px-4 py-8 antialiased selection:bg-amber-500/30 overflow-x-hidden">
-      {/* Dynamic Background Glows */}
-      <div className="absolute top-1/4 left-1/3 h-64 w-64 md:h-72 md:w-72 rounded-full bg-amber-500/10 blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/3 h-64 w-64 md:h-72 md:w-72 rounded-full bg-orange-600/5 blur-3xl" />
-
-      <div className="relative w-full max-w-md rounded-3xl border border-white/6 bg-slate-900/40 p-6 sm:p-8 backdrop-blur-xl shadow-2xl shadow-black/40">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8 text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-b from-amber-400 to-amber-500 text-lg shadow-lg shadow-amber-500/20 mb-4 ring-1 ring-white/20">
-            💬
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-            HiChat
-          </h2>
-          <p className="mt-1.5 text-xs text-slate-400 max-w-70 mx-auto sm:max-w-none">
-            Enter a room and jump into the conversation.
+    <main className="landing">
+      <nav className="brand">
+        <span className="brand-icon">
+          h<span>•</span>
+        </span>{" "}
+        HiChat <span className="brand-tag">A little closer.</span>
+      </nav>
+      <div className="landing-grid">
+        <section className="intro enter">
+          <span className="eyebrow">
+            <i /> GOOD CONVERSATIONS START HERE
+          </span>
+          <h1>
+            Your people.
+            <br />
+            Your space.
+            <br />
+            <span>Just say hi.</span>
+          </h1>
+          <p>
+            A room for every conversation. Drop in, share a thought, and feel a
+            little more connected.
           </p>
-        </div>
-
-        {/* Modern Alert Box */}
-        {errorMsg && (
-          <div className="mb-5 flex items-center gap-2.5 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-3.5 text-xs font-medium text-rose-400 animate-in fade-in duration-300">
-            <span>⚠️</span>
-            <span>{errorMsg}</span>
+          <div className="intro-features">
+            <span>↗ Instant connection</span>
+            <span>◎ No account needed</span>
           </div>
-        )}
-
-        {/* Form */}
-        <form action={handleJoin} className="space-y-5 sm:space-y-6">
-          <div className="space-y-2">
-            <label
-              htmlFor="username"
-              className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400"
-            >
-              Username
+          <div className="conversation-preview" aria-hidden="true">
+            <div className="preview-avatar">J</div>
+            <div>
+              <small>A little hello goes a long way</small>
+              <div className="preview-bubble">
+                Hey, glad you’re here. <span>✦</span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="join-card enter">
+          <span className="card-symbol">↗</span>
+          <span className="eyebrow">MAKE YOURSELF AT HOME</span>
+          <h2>Find your conversation.</h2>
+          <p>Pick a name and a room. We’ll take you there.</p>
+          {(error || params.get("error") === "taken") && (
+            <div className="alert" role="alert">
+              {error ||
+                "That name is already in use in this room. Try another."}
+            </div>
+          )}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              const name = String(data.get("username") || "").trim();
+              const room = String(data.get("room") || "")
+                .trim()
+                .toLowerCase();
+              if (!name || !/^[a-z0-9_-]{1,20}$/.test(room)) {
+                setError(
+                  "Use a name and a room with letters, numbers, hyphens or underscores.",
+                );
+                return;
+              }
+              setJoining(true);
+              router.push(
+                `/room/${encodeURIComponent(room)}?username=${encodeURIComponent(name)}`,
+              );
+            }}
+          >
+            <label htmlFor="username">
+              Your name <span>How others will see you</span>
             </label>
             <input
               id="username"
               name="username"
-              type="text"
+              placeholder="e.g. Alex"
+              autoComplete="nickname"
               required
               maxLength={15}
-              autoComplete="off"
-              placeholder="e.g., Alice"
-              className="w-full rounded-2xl border border-white/5 bg-white/3 px-4 py-3.5 text-sm text-white placeholder-slate-500 outline-hidden transition-all duration-300 focus:border-amber-500/50 focus:bg-white/6 focus:ring-4 focus:ring-amber-500/10"
             />
-          </div>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="room"
-              className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400"
-            >
-              Room Name
+            <label htmlFor="room">
+              Room name <span>Join an existing room or start your own</span>
             </label>
-            <input
-              id="room"
-              name="room"
-              type="text"
-              required
-              maxLength={20}
-              autoComplete="off"
-              defaultValue="general"
-              placeholder="e.g., general"
-              className="w-full rounded-2xl border border-white/5 bg-white/3 px-4 py-3.5 text-sm text-white placeholder-slate-500 outline-hidden transition-all duration-300 focus:border-amber-500/50 focus:bg-white/6 focus:ring-4 focus:ring-amber-500/10"
-            />
+            <div className="room-input">
+              <span>#</span>
+              <input
+                id="room"
+                name="room"
+                defaultValue="general"
+                required
+                maxLength={20}
+                pattern="[a-zA-Z0-9_\-]+"
+                autoComplete="off"
+              />
+            </div>
+            <button className="primary" disabled={joining}>
+              {joining ? "Opening your room…" : "Let’s talk"}
+              <span>↗</span>
+            </button>
+          </form>
+          <div className="card-foot">
+            <span className="status-dot" /> Real-time conversations. Simple as
+            that.
           </div>
-
-          <button
-            type="submit"
-            className="group relative w-full mt-2 overflow-hidden rounded-2xl bg-white py-3.5 text-sm font-semibold text-slate-950 shadow-xl transition-all duration-300 hover:bg-amber-400 active:scale-[0.98]"
-          >
-            Enter Chat Room
-          </button>
-        </form>
+        </section>
       </div>
-    </div>
+      <footer>
+        <span>A space to connect, one hello at a time.</span>
+        <span>
+          Made for the moment <span className="accent">✦</span>
+        </span>
+      </footer>
+    </main>
   );
 }
-
-export default function HomeEntryPage() {
+export default function Home() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-950">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-800 border-t-amber-400" />
-        </div>
-      }
-    >
-      <HomeEntryForm />
+    <Suspense fallback={<main className="loading">Opening HiChat…</main>}>
+      <Entry />
     </Suspense>
   );
 }
