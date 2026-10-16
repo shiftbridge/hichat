@@ -7,6 +7,8 @@ import Pusher, { type PresenceChannel } from "pusher-js";
 import { encodeImage } from "@/lib/encode-image";
 import { createImageReceiver, type ImageChunk } from "@/lib/image-transfer";
 import type { Message } from "@/types/chat";
+import { MessageText } from "@/components/message-text";
+import { EmojiPicker } from "@/components/emoji-picker";
 import { BrandMark } from "@/components/brand-mark";
 import { SettingsMenu } from "@/components/settings-menu";
 import {
@@ -37,6 +39,7 @@ function Room() {
     data: string;
   } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const messageInput = useRef<HTMLInputElement>(null);
   const [preparing, setPreparing] = useState(false);
   const preparation = useRef(0);
   const [connected, setConnected] = useState(false);
@@ -472,7 +475,11 @@ function Room() {
                     <span className="image-open">Save image ↓</span>
                   </a>
                 )}
-                {message.text && <div>{message.text}</div>}
+                {message.text && (
+                  <div>
+                    <MessageText text={message.text} />
+                  </div>
+                )}
               </div>
             </article>
           ))}
@@ -553,7 +560,28 @@ function Room() {
                 <path d="m3 17 5-5 4 4 4-6 5 7" />
               </svg>
             </button>
+            <EmojiPicker
+              onInsert={(emoji) => {
+                const field = messageInput.current;
+                const start = field?.selectionStart ?? input.length;
+                const end = field?.selectionEnd ?? start;
+                const next = input.slice(0, start) + emoji + input.slice(end);
+                if (next.length > 2000) {
+                  setError("Messages can contain up to 2,000 characters.");
+                  return;
+                }
+                setInput(next);
+                requestAnimationFrame(() => {
+                  field?.focus();
+                  field?.setSelectionRange(
+                    start + emoji.length,
+                    start + emoji.length,
+                  );
+                });
+              }}
+            />
             <input
+              ref={messageInput}
               aria-label={`Message ${roomId}`}
               placeholder={
                 connected ? `Message #${roomId}…` : "Waiting for connection…"

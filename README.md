@@ -69,3 +69,9 @@ Open Settings from the sliders icon on the home screen or chat header. Choose Gr
 A first-party cookie remembers your username, last room, up to 10 recent rooms and selected theme for one year. Recent room buttons let you rejoin quickly. Messages you receive, including encoded images, are saved locally and restored when you revisit a room. History stays on this device and is not sent as cookies. Storage retains up to 100 messages per room across 10 rooms, within roughly 1.5 million serialized characters; oldest messages are dropped when that limit is reached. Blocked/full browser storage displays a warning. Live messages sent while you are away cannot be recovered from Pusher.
 
 Settings → **Reset HiChat** → **Clear saved data** clears HiChat cookies, message history, recent rooms and imported themes, restores the default theme, and returns to the home screen. Other sites' or applications' storage is left alone.
+
+## Discord emoji
+
+Paste Discord custom emoji codes directly into messages: `<:name:123456789012345678>` for static emoji or `<a:name:123456789012345678>` for animated emoji. Custom images load from Discord's CDN; no Discord login or bot token is needed. Deleted or unavailable images fall back to the original code. Animated emoji use a static image when reduced motion is enabled.
+
+The smile button opens a mobile-friendly picker with common emoji and a field for custom codes. Common shortcodes such as `:smile:`, `:heart:`, `:thumbsup:` and `:fire:` also render automatically. Arbitrary custom names require their complete numeric ID code. Message history preserves the original codes.
