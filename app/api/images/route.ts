@@ -59,9 +59,35 @@ export async function POST(request: Request) {
       { id, name: file.name.slice(0, 120) || "Image" },
       { status: 201 },
     );
-  } catch {
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    console.error("Image storage failed", error);
+    if (["EROFS", "EACCES", "EPERM", "ENOTDIR"].includes(code || "")) {
+      return NextResponse.json(
+        {
+          error:
+            "Image storage is not writable on this server. Set IMAGE_STORAGE_DIR to a writable, persistent folder and restart the app.",
+          code: "IMAGE_STORAGE_UNAVAILABLE",
+        },
+        { status: 503 },
+      );
+    }
+    if (["ENOSPC", "EDQUOT"].includes(code || "")) {
+      return NextResponse.json(
+        {
+          error:
+            "The server’s image storage is full. Free disk space before retrying.",
+          code: "IMAGE_STORAGE_FULL",
+        },
+        { status: 507 },
+      );
+    }
     return NextResponse.json(
-      { error: "Unable to store this image. Please try again." },
+      {
+        error:
+          "Unable to store this image. Check the server log for the storage error.",
+        code: "IMAGE_STORAGE_FAILED",
+      },
       { status: 500 },
     );
   }

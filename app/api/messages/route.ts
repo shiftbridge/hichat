@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPusher, validRoom, validUser } from "@/lib/chat";
-import { loadImage, validImageId } from "@/lib/images";
+import { loadImage, validImageId, imageExtension } from "@/lib/images";
+import { chunkImage, validImageData } from "@/lib/image-transfer";
 import type { Message } from "@/types/chat";
 
 export async function POST(request: Request) {
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
     body.image !== undefined &&
     (!body.image ||
       !validImageId(body.image.id) ||
+      (body.image.data !== undefined && !validImageData(body.image.data)) ||
       typeof body.image.name !== "string" ||
       body.image.name.length > 120)
   ) {
@@ -38,7 +40,15 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  if (body.image && !(await loadImage(body.image.id))) {
+  if (body.image?.data) {
+    const bytes = Buffer.from(body.image.data.split(",")[1], "base64");
+    if (!imageExtension(bytes))
+      return NextResponse.json(
+        { error: "Invalid image content." },
+        { status: 400 },
+      );
+  }
+  if (body.image && !body.image.data && !(await loadImage(body.image.id))) {
     return NextResponse.json(
       { error: "This image is no longer available. Please attach it again." },
       { status: 400 },
@@ -51,17 +61,40 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   const payload: Message = {
-    id: crypto.randomUUID(),
+    id: body.image?.data ? body.image.id.slice(0, 36) : crypto.randomUUID(),
     room: body.room,
     user: body.user.trim(),
     text: body.text.trim(),
     timestamp: new Date().toISOString(),
     ...(body.image
-      ? { image: { id: body.image.id, name: body.image.name } }
+      ? {
+          image: {
+            id: body.image.id,
+            name: body.image.name,
+            ...(body.image.data ? { data: body.image.data } : {}),
+          },
+        }
       : {}),
   };
   try {
-    await pusher.trigger(`presence-room-${body.room}`, "new-message", payload);
+    if (payload.image?.data) {
+      const chunks = chunkImage(payload);
+      for (let index = 0; index < chunks.length; index += 10) {
+        await pusher.triggerBatch(
+          chunks.slice(index, index + 10).map((chunk) => ({
+            channel: `presence-room-${body.room}`,
+            name: "image-message-chunk",
+            data: chunk,
+          })),
+        );
+      }
+    } else {
+      await pusher.trigger(
+        `presence-room-${body.room}`,
+        "new-message",
+        payload,
+      );
+    }
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

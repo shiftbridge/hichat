@@ -1,8 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const directory = path.join(process.cwd(), ".data", "images");
+function storageDirectory() {
+  return process.env.IMAGE_STORAGE_DIR
+    ? path.resolve(process.env.IMAGE_STORAGE_DIR)
+    : path.join(process.cwd(), ".data", "images");
+}
 const mimeTypes = {
   png: "image/png",
   jpg: "image/jpeg",
@@ -51,7 +56,8 @@ export async function saveImage(data: Uint8Array) {
   const extension = imageExtension(data);
   if (!extension || !data.length || data.length > MAX_IMAGE_BYTES)
     throw new Error("Invalid image");
-  const id = `${crypto.randomUUID()}.${extension}`;
+  const id = `${randomUUID()}.${extension}`;
+  const directory = storageDirectory();
   await mkdir(directory, { recursive: true });
   await writeFile(path.join(directory, id), data, { flag: "wx", mode: 0o600 });
   return id;
@@ -60,7 +66,7 @@ export async function saveImage(data: Uint8Array) {
 export async function loadImage(id: string) {
   if (!validImageId(id)) return null;
   try {
-    const data = await readFile(path.join(directory, id));
+    const data = await readFile(path.join(storageDirectory(), id));
     const extension = id.split(".").pop() as keyof typeof mimeTypes;
     return { data, mime: mimeTypes[extension] };
   } catch (error) {

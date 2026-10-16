@@ -1,6 +1,7 @@
 export interface ChatImage {
   id: string;
   name: string;
+  data?: string;
 }
 
 export interface Message {

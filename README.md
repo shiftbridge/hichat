@@ -52,10 +52,12 @@ Room names use 1–20 lowercase letters, numbers, hyphens or underscores. Displa
 
 Run `bun run lint`, `bunx tsc --noEmit`, and `bun run build` to check the app.
 
-## Image sharing (local storage)
+## Image sharing (works on Vercel)
 
-Use the image button beside the message field to select a PNG, JPEG, GIF or WebP (up to 5 MB). Preview or remove it, add an optional caption, then send. Recipients see the image inline and can open the original in a new tab. A failed send keeps the image and caption for retry.
+Select a PNG, JPEG, GIF or WebP up to 5 MB using the image button. Images are resized to at most 1,280 pixels on their longest side, compressed, and base64-encoded entirely in the sender's browser. Large/detailed images are reduced further to keep the encoded data under 350,000 characters. Animated images become a still frame. Add an optional caption and send; recipients reconstruct and display the image and can save the compressed copy. Failed sends retain the attachment for retry.
 
-Images upload directly to this app and are stored in `.data/images/`, excluded from Git. Only a small image reference and filename travel through the existing Pusher message transport; image bytes are served from this app, with no external image hosting or base64 payloads. This is **local image storage**, not a fully offline chat: Pusher is still required for room membership and message delivery.
+Images travel as small text chunks through the existing Pusher relay, then are reassembled in recipients' browsers. No server disk, image host, or additional storage service is required. Pusher still transports the image data, and each chunk counts toward its message usage. Images and messages are live-only: reloading clears them and users joining later do not receive earlier images.
 
-Run on a Node/Bun host with a writable, persistent disk. Ephemeral/serverless deployments may lose uploads, and multiple instances must share the same storage volume. Stored images remain until removed from disk; there is no automatic expiry. Like the existing rooms, image URLs have no account-based access control: anyone with an image URL can view it. Share images only within your intended trusted deployment. Reloading clears the live message list but does not delete uploaded files.
+The older `/api/images` disk-upload endpoints remain for existing image references on persistent self-hosted installations, but the chat composer no longer calls them. They cannot provide persistent storage on Vercel. Self-hosted legacy storage defaults to `.data/images/`; `IMAGE_STORAGE_DIR` can point to a writable persistent directory. Upload errors now identify read-only/full storage and log the underlying server error.
+
+Run `bun test` for image validation, relay reconstruction, and legacy storage tests.
