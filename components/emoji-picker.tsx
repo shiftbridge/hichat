@@ -1,29 +1,12 @@
 "use client";
-import { useId, useRef, useState } from "react";
-import { parseEmoji } from "@/lib/emoji";
+import { useId, useRef, useState, useMemo, useDeferredValue } from "react";
+import {
+  parseEmoji,
+  emojiOnlyCount,
+  searchEmoji,
+  emojiCategories,
+} from "@/lib/emoji";
 import { MessageText } from "@/components/message-text";
-const choices = [
-  "😀",
-  "😄",
-  "😂",
-  "🤣",
-  "😊",
-  "😍",
-  "🤔",
-  "😭",
-  "😎",
-  "💀",
-  "❤️",
-  "🔥",
-  "🎉",
-  "✨",
-  "👋",
-  "👍",
-  "👏",
-  "🙏",
-  "👀",
-  "🚀",
-];
 export function EmojiPicker({
   onInsert,
 }: {
@@ -33,6 +16,15 @@ export function EmojiPicker({
   const heading = useId();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState(-1);
+  const [tone, setTone] = useState(0);
+  const [limit, setLimit] = useState(96);
+  const deferredQuery = useDeferredValue(query);
+  const choices = useMemo(
+    () => searchEmoji(deferredQuery, category, tone),
+    [deferredQuery, category, tone],
+  );
   function insert(emoji: string) {
     dialog.current?.close();
     onInsert(emoji);
@@ -41,9 +33,9 @@ export function EmojiPicker({
   }
   function insertCustom() {
     const parts = parseEmoji(code.trim());
-    if (parts.length !== 1 || parts[0].type !== "custom") {
+    if (!emojiOnlyCount(parts)) {
       setError(
-        "Paste a complete Discord custom emoji code, including its numeric ID.",
+        "Enter an emoji, a shortcode such as :sob:, or a complete Discord custom emoji code.",
       );
       return;
     }
@@ -93,26 +85,109 @@ export function EmojiPicker({
               ×
             </button>
           </header>
-          <div className="emoji-grid">
-            {choices.map((emoji) => (
+          <div className="emoji-search-controls">
+            <label className="sr-only" htmlFor={`${heading}-search`}>
+              Search all emoji
+            </label>
+            <input
+              id={`${heading}-search`}
+              type="search"
+              value={query}
+              placeholder="Search emoji or :shortcode:…"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.preventDefault();
+              }}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setLimit(96);
+              }}
+            />
+            <div className="emoji-filters">
+              <label>
+                Category
+                <select
+                  value={category}
+                  onChange={(event) => {
+                    setCategory(Number(event.target.value));
+                    setLimit(96);
+                  }}
+                >
+                  {emojiCategories.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Skin tone
+                <select
+                  value={tone}
+                  onChange={(event) => {
+                    setTone(Number(event.target.value));
+                    setLimit(96);
+                  }}
+                >
+                  <option value={0}>Default</option>
+                  <option value={1}>Light</option>
+                  <option value={2}>Medium-light</option>
+                  <option value={3}>Medium</option>
+                  <option value={4}>Medium-dark</option>
+                  <option value={5}>Dark</option>
+                  <option value={-1}>All variants</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <p className="emoji-result-count" role="status">
+            {choices.length} emoji
+            {query ? ` matching “${query}”` : " to explore"}
+          </p>
+          <div className="emoji-results">
+            <div className="emoji-grid">
+              {choices.slice(0, limit).map((emoji) => (
+                <button
+                  key={emoji.id}
+                  type="button"
+                  aria-label={`Insert ${emoji.label}`}
+                  title={`${emoji.label}${emoji.aliases[0] ? ` · :${emoji.aliases[0]}:` : ""}`}
+                  onClick={() => insert(emoji.native)}
+                >
+                  {emoji.native}
+                </button>
+              ))}
+            </div>
+            {choices.length === 0 && (
+              <p className="emoji-no-results">
+                No emoji found. Try a different name or category.
+              </p>
+            )}
+            {choices.length > limit && (
               <button
-                key={emoji}
                 type="button"
-                aria-label={`Insert ${emoji}`}
-                onClick={() => insert(emoji)}
+                className="subtle emoji-load-more"
+                onClick={() => setLimit((current) => current + 96)}
               >
-                {emoji}
+                Show more ({choices.length - limit} remaining)
               </button>
-            ))}
+            )}
           </div>
           <div className="custom-emoji-entry">
-            <label htmlFor={`${heading}-code`}>Discord custom emoji</label>
-            <p>Paste a code such as &lt;:name:id&gt; or &lt;a:name:id&gt;.</p>
+            <label htmlFor={`${heading}-code`}>
+              Shortcode or Discord custom emoji
+            </label>
+            <p>
+              Try :sob:, :heart:, or &lt;a:name:id&gt; for a custom animated
+              emoji.
+            </p>
             <input
               id={`${heading}-code`}
               value={code}
-              maxLength={80}
-              placeholder="<:party:123456789012345678>"
+              maxLength={160}
+              placeholder=":sob: or <:party:123456789012345678>"
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
@@ -136,11 +211,11 @@ export function EmojiPicker({
               </div>
             )}
             <button type="button" className="primary" onClick={insertCustom}>
-              Insert custom emoji
+              Insert emoji
             </button>
             <p className="emoji-note">
-              Custom emoji images load from Discord. Names alone, like :party:,
-              need a full custom code.
+              Standard shortcodes work locally. Server-specific custom emoji
+              need their full ID code and load from Discord.
             </p>
           </div>
         </div>

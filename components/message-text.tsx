@@ -1,6 +1,11 @@
 "use client";
 import { useState } from "react";
-import { discordEmojiUrl, parseEmoji, type EmojiPart } from "@/lib/emoji";
+import {
+  discordEmojiUrl,
+  parseEmoji,
+  emojiOnlyCount,
+  type EmojiPart,
+} from "@/lib/emoji";
 function CustomEmoji({
   emoji,
 }: {
@@ -33,10 +38,8 @@ function CustomEmoji({
 }
 export function MessageText({ text }: { text: string }) {
   const parts = parseEmoji(text);
-  const large =
-    parts.some((part) => part.type === "custom") &&
-    parts.filter((part) => part.type === "custom").length <= 6 &&
-    parts.every((part) => part.type === "custom" || !part.value.trim());
+  const count = emojiOnlyCount(parts);
+  const large = count > 0 && count <= 6;
   return (
     <span className={large ? "message-text emoji-only" : "message-text"}>
       {parts.map((part, index) =>
