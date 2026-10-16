@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPusher, validRoom, validUser } from "@/lib/chat";
+import { loadImage, validImageId } from "@/lib/images";
 import type { Message } from "@/types/chat";
 
 export async function POST(request: Request) {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     !validRoom(body.room) ||
     !validUser(body.user) ||
     typeof body.text !== "string" ||
-    !body.text.trim() ||
+    (!body.text.trim() && !body.image) ||
     body.text.length > 2000
   ) {
     return NextResponse.json(
@@ -22,6 +23,24 @@ export async function POST(request: Request) {
         error:
           "Provide a valid room, name and message (up to 2,000 characters).",
       },
+      { status: 400 },
+    );
+  }
+  if (
+    body.image !== undefined &&
+    (!body.image ||
+      !validImageId(body.image.id) ||
+      typeof body.image.name !== "string" ||
+      body.image.name.length > 120)
+  ) {
+    return NextResponse.json(
+      { error: "Invalid image attachment." },
+      { status: 400 },
+    );
+  }
+  if (body.image && !(await loadImage(body.image.id))) {
+    return NextResponse.json(
+      { error: "This image is no longer available. Please attach it again." },
       { status: 400 },
     );
   }
@@ -37,6 +56,9 @@ export async function POST(request: Request) {
     user: body.user.trim(),
     text: body.text.trim(),
     timestamp: new Date().toISOString(),
+    ...(body.image
+      ? { image: { id: body.image.id, name: body.image.name } }
+      : {}),
   };
   try {
     await pusher.trigger(`presence-room-${body.room}`, "new-message", payload);

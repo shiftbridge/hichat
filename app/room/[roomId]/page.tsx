@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Pusher, { type PresenceChannel } from "pusher-js";
-import type { Message } from "@/types/chat";
+import type { ChatImage, Message } from "@/types/chat";
 
 type Members = { each: (callback: (member: { id: string }) => void) => void };
 const configured = Boolean(
@@ -17,6 +17,12 @@ function Room() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [attachment, setAttachment] = useState<{
+    file: File;
+    preview: string;
+  } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const uploaded = useRef<{ file: File; image: ChatImage } | null>(null);
   const [connected, setConnected] = useState(false);
   const [members, setMembers] = useState<string[]>([]);
   const [typing, setTyping] = useState<string[]>([]);
@@ -128,18 +134,63 @@ function Room() {
     return () => window.removeEventListener("keydown", close);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (attachment) URL.revokeObjectURL(attachment.preview);
+    };
+  }, [attachment]);
+
+  function selectImage(file?: File) {
+    if (!file) return;
+    if (
+      !["image/png", "image/jpeg", "image/gif", "image/webp"].includes(
+        file.type,
+      )
+    ) {
+      setError("Choose a PNG, JPEG, GIF or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024 || !file.size) {
+      setError("Choose an image smaller than 5 MB.");
+      return;
+    }
+    uploaded.current = null;
+    setAttachment({ file, preview: URL.createObjectURL(file) });
+    setError("");
+  }
+
   async function send(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || !connected || sendingRef.current) return;
+    const draftAttachment = attachment;
+    if ((!text && !draftAttachment) || !connected || sendingRef.current) return;
     sendingRef.current = true;
     setSending(true);
     setError("");
     try {
+      let image: ChatImage | undefined;
+      if (draftAttachment) {
+        if (uploaded.current?.file === draftAttachment.file)
+          image = uploaded.current.image;
+        else {
+          const form = new FormData();
+          form.append("image", draftAttachment.file);
+          const upload = await fetch("/api/images", {
+            method: "POST",
+            body: form,
+            signal: AbortSignal.timeout(60000),
+          });
+          const result = await upload.json();
+          if (!upload.ok)
+            throw new Error(result.error || "Unable to upload this image.");
+          image = result as ChatImage;
+          uploaded.current = { file: draftAttachment.file, image };
+        }
+      }
       const response = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ room: roomId, user: username, text }),
+        body: JSON.stringify({ room: roomId, user: username, text, image }),
         signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) {
@@ -147,6 +198,10 @@ function Room() {
         throw new Error(data.error || "Unable to send your message.");
       }
       setInput((current) => (current.trim() === text ? "" : current));
+      setAttachment((current) =>
+        current === draftAttachment ? null : current,
+      );
+      uploaded.current = null;
       follow.current = true;
     } catch (cause) {
       setError(
@@ -226,7 +281,37 @@ function Room() {
                       })}
                 </time>
               </div>
-              <div className="bubble">{message.text}</div>
+              <div className={`bubble ${message.image ? "image-bubble" : ""}`}>
+                {message.image && (
+                  <a
+                    className="chat-image-link"
+                    href={`/api/images/${encodeURIComponent(message.image.id)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open image: ${message.image.name}`}
+                  >
+                    {/* Original local uploads are served directly, without an external image optimizer. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className="chat-image"
+                      src={`/api/images/${encodeURIComponent(message.image.id)}`}
+                      alt={message.image.name}
+                      loading="lazy"
+                      onLoad={() => {
+                        if (follow.current)
+                          bottom.current?.scrollIntoView({
+                            behavior: "instant",
+                          });
+                      }}
+                      onError={(event) => {
+                        event.currentTarget.alt = "Image unavailable";
+                      }}
+                    />
+                    <span className="image-open">Open image ↗</span>
+                  </a>
+                )}
+                {message.text && <div>{message.text}</div>}
+              </div>
             </article>
           ))}
           <div className="typing" role="status">
@@ -245,7 +330,68 @@ function Room() {
               {error}
             </div>
           )}
+          {attachment && (
+            <div className="attachment-preview">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={attachment.preview} alt="Selected attachment preview" />
+              <div>
+                <strong>{attachment.file.name}</strong>
+                <small>
+                  {sending
+                    ? "Sending image…"
+                    : `${(attachment.file.size / 1024).toFixed(0)} KB · Ready to send`}
+                </small>
+              </div>
+              <button
+                type="button"
+                className="subtle"
+                disabled={sending}
+                aria-label="Remove image"
+                onClick={() => {
+                  setAttachment(null);
+                  uploaded.current = null;
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
           <form className="composer" onSubmit={send}>
+            <input
+              className="image-file-input"
+              ref={fileInput}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              aria-label="Choose an image"
+              tabIndex={-1}
+              disabled={sending}
+              onChange={(event) => {
+                selectImage(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="attach-button"
+              aria-label="Attach image"
+              title="Attach image (up to 5 MB)"
+              disabled={sending || !connected}
+              onClick={() => fileInput.current?.click()}
+            >
+              <svg
+                width="21"
+                height="21"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                aria-hidden="true"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="4" />
+                <circle cx="8" cy="8" r="1.5" />
+                <path d="m3 17 5-5 4 4 4-6 5 7" />
+              </svg>
+            </button>
             <input
               aria-label={`Message ${roomId}`}
               placeholder={
@@ -267,14 +413,18 @@ function Room() {
             />
             <button
               className="primary"
-              disabled={!input.trim() || !connected || sending}
+              disabled={(!input.trim() && !attachment) || !connected || sending}
               aria-label="Send message"
             >
               {sending ? "…" : "↑"}
             </button>
           </form>
           <div className="composer-caption">
-            <span>Good conversations start with kindness.</span>
+            <span>
+              {sending && attachment
+                ? "Uploading and sending…"
+                : "Images up to 5 MB · Stored on this server"}
+            </span>
             <span>
               {input.length ? `${input.length}/2000` : "Enter to send ↵"}
             </span>

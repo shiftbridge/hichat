@@ -1,7 +1,13 @@
+export interface ChatImage {
+  id: string;
+  name: string;
+}
+
 export interface Message {
   id: string;
   room: string;
   user: string;
   text: string;
   timestamp: string;
+  image?: ChatImage;
 }

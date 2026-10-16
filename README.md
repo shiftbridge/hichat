@@ -51,3 +51,11 @@ Enable **client events** in the Pusher dashboard for typing indicators. Restart 
 Room names use 1–20 lowercase letters, numbers, hyphens or underscores. Display names have a 15-character limit and messages have a 2,000-character limit. Messages are delivered live and aren't persisted; joining or reloading starts a fresh view. Missing credentials display an offline state and API requests return a clear configuration error.
 
 Run `bun run lint`, `bunx tsc --noEmit`, and `bun run build` to check the app.
+
+## Image sharing (local storage)
+
+Use the image button beside the message field to select a PNG, JPEG, GIF or WebP (up to 5 MB). Preview or remove it, add an optional caption, then send. Recipients see the image inline and can open the original in a new tab. A failed send keeps the image and caption for retry.
+
+Images upload directly to this app and are stored in `.data/images/`, excluded from Git. Only a small image reference and filename travel through the existing Pusher message transport; image bytes are served from this app, with no external image hosting or base64 payloads. This is **local image storage**, not a fully offline chat: Pusher is still required for room membership and message delivery.
+
+Run on a Node/Bun host with a writable, persistent disk. Ephemeral/serverless deployments may lose uploads, and multiple instances must share the same storage volume. Stored images remain until removed from disk; there is no automatic expiry. Like the existing rooms, image URLs have no account-based access control: anyone with an image URL can view it. Share images only within your intended trusted deployment. Reloading clears the live message list but does not delete uploaded files.
