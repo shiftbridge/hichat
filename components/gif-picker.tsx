@@ -1,6 +1,6 @@
 "use client";
 import { useId, useRef, useState } from "react";
-import { normalizeGifs, type ChatGif } from "@/lib/gifs";
+import { validGif, type ChatGif } from "@/lib/gifs";
 export function GifPicker({
   onSelect,
   disabled,
@@ -10,49 +10,21 @@ export function GifPicker({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
-  const [provider, setProvider] = useState<ChatGif["provider"]>(
-    process.env.NEXT_PUBLIC_GIPHY_API_KEY ? "giphy" : "klipy",
-  );
+  const [provider, setProvider] = useState<ChatGif["provider"]>("giphy");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ChatGif[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const active = useRef<AbortController | null>(null);
-  async function search(selected = provider) {
+  async function search(selected: ChatGif["provider"] | null = provider) {
     active.current?.abort();
-    const key =
-      selected === "giphy"
-        ? process.env.NEXT_PUBLIC_GIPHY_API_KEY
-        : process.env.NEXT_PUBLIC_KLIPY_API_KEY;
-    if (!key) {
-      setResults([]);
-      setLoading(false);
-      setError(
-        `${selected.toUpperCase()} search is not configured. Add its public API key to the app’s environment and redeploy.`,
-      );
-      return;
-    }
     const controller = new AbortController();
     active.current = controller;
     setLoading(true);
     setError("");
     setResults([]);
-    const endpoint = query.trim() ? "search" : "trending";
-    const url =
-      selected === "giphy"
-        ? new URL(`https://api.giphy.com/v1/gifs/${endpoint}`)
-        : new URL(
-            `https://api.klipy.com/api/v1/${encodeURIComponent(key)}/gifs/${endpoint}`,
-          );
-    if (selected === "giphy") {
-      url.searchParams.set("api_key", key);
-      url.searchParams.set("limit", "24");
-      url.searchParams.set("rating", "pg-13");
-    } else {
-      url.searchParams.set("page", "1");
-      url.searchParams.set("per_page", "24");
-      url.searchParams.set("content_filter", "medium");
-    }
+    const url = new URL("/api/gifs", window.location.origin);
+    if (selected) url.searchParams.set("provider", selected);
     if (query.trim()) url.searchParams.set("q", query.trim());
     try {
       const response = await fetch(url, {
@@ -61,14 +33,15 @@ export function GifPicker({
           AbortSignal.timeout(15000),
         ]),
       });
-      if (!response.ok)
-        throw new Error(
-          response.status === 429
-            ? "GIF search is busy. Try again shortly."
-            : "GIF search failed. Check the provider API key and try again.",
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Unable to search GIFs.");
+      if (!controller.signal.aborted) {
+        setResults(
+          Array.isArray(body.results) ? body.results.filter(validGif) : [],
         );
-      const gifs = normalizeGifs(await response.json(), selected);
-      if (!controller.signal.aborted) setResults(gifs);
+        if (body.provider === "giphy" || body.provider === "klipy")
+          setProvider(body.provider);
+      }
     } catch (error) {
       if (!controller.signal.aborted)
         setError(
@@ -88,7 +61,7 @@ export function GifPicker({
         title="Search GIPHY or KLIPY"
         onClick={() => {
           dialog.current?.showModal();
-          void search();
+          void search(null);
         }}
       >
         GIF

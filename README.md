@@ -81,11 +81,11 @@ The smile button opens a searchable, categorized picker backed by the bundled [E
 The **GIF** button searches GIPHY or KLIPY and attaches an animation with an optional caption. Add one or both provider keys to `.env.local`, or to your Vercel project's environment variables, and redeploy:
 
 ```dotenv
-NEXT_PUBLIC_GIPHY_API_KEY=your-giphy-api-key
-NEXT_PUBLIC_KLIPY_API_KEY=your-klipy-app-key
+GIPHY_API_KEY=your-giphy-api-key
+KLIPY_API_KEY=your-klipy-app-key
 ```
 
-These are public browser API keys: search requests go directly to the selected provider, and GIF media loads from its CDN. Follow the provider's app/key restrictions. Get keys from [GIPHY Developers](https://developers.giphy.com/dashboard/) or [KLIPY](https://klipy.com/developers). Search queries go to that provider; the app stores only a small GIF reference in messages/history. KLIPY uses a local anonymous customer ID, which Reset HiChat also clears. Missing keys show a configuration message; there are no built-in demo keys.
+These keys are private server environment variables read through the route's `Config` object. The picker calls `/api/gifs`; the server uses the official `@giphy/js-fetch-api` SDK (`GiphyFetch.search` / `GiphyFetch.trending`) for GIPHY and the REST API for KLIPY. It returns normalized media results, never credentials or upstream error details. GIPHY SDK requests have a 12-second route wait limit. GIF images still load from the provider's CDN. Get keys from [GIPHY Developers](https://developers.giphy.com/dashboard/) or [KLIPY](https://klipy.com/developers). Missing keys show a configuration message. Remove the old public-prefixed GIF variables from Vercel and redeploy; rotate keys that were previously published in a client bundle if they need to remain private. No provider key belongs in `next.config.ts`'s `env` field, which inlines values into JavaScript.
 
 Uploaded `.gif` files now preserve their animation instead of being flattened by canvas. Direct GIF uploads are limited to 256 KB to fit the encoded chat relay; use provider GIFs for larger animations. Static images keep the existing 5 MB selection limit and local compression.
 
